@@ -1,0 +1,31 @@
+a;
+{
+    a = 10 ;
+    SWITCH a
+    {
+        CASE 0 :
+        {
+            a = 20 ;
+
+            IF a > 1 {
+
+              print a;
+            }
+        }
+        CASE 10 :
+        {
+            a = a + 40;
+
+            IF a > 5 {
+
+              print a;
+            }
+
+            IF a > 6 {
+
+              print a;
+            }
+        }
+    }
+    print a ;
+    }
