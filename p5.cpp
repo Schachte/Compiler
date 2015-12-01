@@ -3,6 +3,9 @@ extern "C" {
  	#include "compiler.h"
 }
 
+// Gcc -c compiler.c; g++ p5.cpp compiler.o; ./a.out < tests/test_control_whilewhile_if1.txt
+
+
 #define VERBOSE 1
 
 #include <string>
@@ -79,12 +82,11 @@ int beginParsingCode = 0;
 //Updates based on most recently visited node type
 char * current_type;
 
-ValueNode * current_switch_op_1;
+ValueNode * currentSwitchOperand1;
+
+vector<char *> if_statement_type_tracker_list;
 
 char * currently_adding = "";
-
-vector<char*> if_queue_list;
-vector<StatementNode*> if_queue_node_list;
 
 //TESTING FUNCTIONS TO ENSURE VALIDITY INSIDE OF THE PROGRAM
 /************************************************************/
@@ -92,6 +94,7 @@ StatementNode * gather_statement_data(int counter);
 void check_current_token();
 void test_linked_list_values();
 void test_statement_assigns();
+ValueNode * second_operand_for_if_condition();
 struct ValueNode * create_numerical_value_node(char * integer_input_value);
 /************************************************************/
 
@@ -121,24 +124,25 @@ void add_node_to_statement_list(StatementNode * sNode) {
 
 		while (temp->next != NULL) {
 
+      // printf("TEST\n");
+      // printf("%s\n", currently_adding);
+
 			if (temp->type == IF_STMT)
 			{
 
-        if (temp->if_stmt->false_branch == NULL && (currently_adding == "SWITCH" || currently_adding == "CASE")) {
+				if (temp->if_stmt->true_branch == NULL && strcmp(currently_adding, "SWITCH") != 0) {
 
-          //Assigning what will execute if (TRUE) for a case statement body
-          temp->if_stmt->false_branch = temp->next;
-          cout << "\n\n\n\nASSIGNED NEXT SWITCH VALUE FOR FALSE BRANCH\n\n" << endl;
-
-          cout << temp << endl;
-        }
-
-				else if (temp->if_stmt->true_branch == NULL && currently_adding != "SWITCH") {
-
+          // printf("added\n");
 					temp->if_stmt->true_branch = temp->next;
-				}
-			}
 
+				}
+
+        if (temp->if_stmt->false_branch == NULL && strcmp(currently_adding, "SWITCH") == 0) {
+          // printf("added\n");
+
+          temp->if_stmt->false_branch = temp->next;
+        }
+			}
 			temp = temp->next;
 		}
 
@@ -153,6 +157,7 @@ void add_node_to_statement_list(StatementNode * sNode) {
 
 	}
 }
+
 
 //Function to search for a value node and return it to the necessary function
 ValueNode * search_for_value(char * findMe) {
@@ -170,6 +175,104 @@ ValueNode * search_for_value(char * findMe) {
 	}
 
 	return NULL;
+}
+
+//Function designed to understand the structure of a switch statement and parse the nodes accordingly
+void parse_switch_statement() {
+
+  if (VERBOSE)
+    printf("Inside of switch/case and the current token type is as follows\n");
+
+    //Get the operand_1 for the switch statement
+    t_type = getToken();
+
+    /***************************************************
+    * Build the if node for the switch statement
+    ****************************************************/
+
+    //Parent if node that will hold the switch statement node
+    IfStatement * switch_statement_node = new IfStatement();
+
+    //If the t_type currently exists in the vector node list
+  	if (t_type == ID) {
+
+  		char * current_value = strdup(token);
+
+      //Store the parent switch op1 when encountering more case statements
+      currentSwitchOperand1 = search_for_value(current_value);
+
+  		switch_statement_node->condition_operand1 = search_for_value(current_value);
+
+      switch_statement_node->condition_op = CONDITION_NOTEQUAL;
+
+      if (VERBOSE) {
+        printf("CONDITION NOT EQUAL HAS BEEN SET FOR THE CASE STATEMENT\n\n\n");
+      }
+
+      braceCount+=1;
+
+      //Traverse until you hit the num inside the first case statement
+      while (t_type != NUM) {
+        t_type = getToken();
+        check_current_token();
+
+        if (t_type == NUM) {
+          break;
+        }
+      }
+    }
+
+      // if (VERBOSE)
+        // printf("Case number achieved for operand2 %s\n\n", token);
+
+        //If the global_op_1 is not null, then we can assign the statement node op1
+          // printf("Brace count increase %d\n\n", braceCount);
+
+
+        if (currentSwitchOperand1) {
+
+          // cout << "GLOBAL OP 1 NOT NULL, BUILDING STATEMENT NODE" << endl;
+
+          switch_statement_node->condition_operand1 = currentSwitchOperand1;
+
+          switch_statement_node->condition_op = CONDITION_NOTEQUAL;
+
+        }
+
+      //Set the operand2 for the switch statement
+      char * current_token_value = strdup(token);
+
+      //Create the value node for the current token
+
+      ValueNode * operand_2_value_node = new ValueNode();
+
+      operand_2_value_node->name = current_token_value;
+      operand_2_value_node->value = atoi(current_token_value);
+
+      if (VERBOSE)
+        printf("The token has been copied successfully\n\n");
+
+      switch_statement_node->condition_operand2 = operand_2_value_node;
+
+      if (VERBOSE)
+        printf("The token has been stored successfully\n\n");
+
+
+      StatementNode * newSwitchNode = new StatementNode();
+
+      newSwitchNode->type = IF_STMT;
+
+      newSwitchNode->if_stmt = switch_statement_node;
+
+      currently_adding = "SWITCH";
+
+      // cout << "\n\n\nADDING SWITCH NOW\n\n\n" << endl;
+
+      add_node_to_statement_list(newSwitchNode);
+
+      // cout << "\n\n\nADDING SWITCH NOW\n\n\n" << endl;
+
+      StatementNode * buildNestedBody = gather_statement_data(braceCountNested);
 }
 
 //Function to parse out and return the print statement data
@@ -213,85 +316,6 @@ ValueNode * second_operand_for_if_condition() {
 	}
 
 return tempSecondOp;
-
-}
-
-
-void parse_switch_statement() {
-
-  //Get the operand 1 that you want to use for the switch statement
-  t_type = getToken();
-
-  //Build the statement that will contain the operands
-  IfStatement * newSwitchStatement = new IfStatement();
-
-  char * current_value;
-
-  /************************
-  BUILDING OP_1 FOR SWITCH
-  ************************/
-
-  if (current_type == "SWITCH") {
-
-    current_value = strdup(token);
-
-    newSwitchStatement->condition_operand1 = search_for_value(current_value);
-
-    current_switch_op_1 = newSwitchStatement->condition_operand1;
-
-    if (VERBOSE)
-      cout << "Assigned the value to operand 1 for the switch as " << newSwitchStatement->condition_operand1->name << endl;
-
-
-    /************************
-    BUILDING OP_2 FOR SWITCH
-    ************************/
-    while (t_type != CASE) {
-      t_type = getToken();
-    }
-
-    //Get the actual value that is done for the realational comparisons
-    t_type = getToken();
-    // t_type = getToken
-
-    braceCount+=1;
-
-  }
-
-  else if (current_type == "CASE") {
-
-    newSwitchStatement->condition_operand1 = current_switch_op_1;
-
-    t_type = getToken();
-
-    cout << "ASSIGNED OP_1 AS PREVIOUS VALUE, CURRENT VALUE IS " << token << endl;
-
-  }
-
-  if (VERBOSE)
-    cout << "The type value is now " << token << endl;
-
-  current_value = strdup(token);
-
-  newSwitchStatement->condition_op = CONDITION_NOTEQUAL;
-  newSwitchStatement->condition_operand2 = create_numerical_value_node(token);
-
-
-  /*************************
-  ADDING SWITCH NODE TO LIST
-  *************************/
-
-  StatementNode * newSwitchNode = new StatementNode();
-
-  newSwitchNode->type = IF_STMT;
-
-  newSwitchNode->if_stmt = newSwitchStatement;
-
-  if_queue_node_list.push_back(newSwitchNode);
-
-  add_node_to_statement_list(newSwitchNode);
-
-  StatementNode * buildNestedBody = gather_statement_data(braceCountNested);
 
 }
 
@@ -371,7 +395,7 @@ void parse_if_statement() {
 
 			newIfNode->if_stmt = currentIfStmt;
 
-      if_queue_node_list.push_back(newIfNode);
+      currently_adding = "IF";
 
 			add_node_to_statement_list(newIfNode);
 
@@ -385,6 +409,8 @@ void parse_if_statement() {
 			newWhileNode->type = IF_STMT;
 
 			newWhileNode->if_stmt = currentIfStmt;
+
+      currently_adding = "IF";
 
 			add_node_to_statement_list(newWhileNode);
 
@@ -572,14 +598,12 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
 		//Traverse through the characters within the statements
 		if (beginParsingCode == 0)
-			t_type = getToken();
+			 t_type = getToken();
 
-		check_current_token();
+		// check_current_token();
 
 		//Check to see if it is an assignment statement
 		t_type = getToken();
-
-		check_current_token();
 
 		if (t_type == EQUAL){
 
@@ -597,17 +621,19 @@ StatementNode * gather_statement_data(int braceCountNum) {
 				printf("THE ASSSIGNMENT STATEMENT HAS BEEN PARSED ACCORDINGLY\n");
 
 			//We now need to add this to the linkedlist
+
 			StatementNode * tempStatementNode;
 			tempStatementNode = new StatementNode();
 
 			tempStatementNode->type = ASSIGN_STMT;
 			tempStatementNode->assign_stmt = assignStatement;
 
+      // printf("right before adding\n");
+
 			add_node_to_statement_list(tempStatementNode);
 
 			if (VERBOSE)
 				cout << "**********************\nASSIGN ADDED\n**********************" << endl;
-
 		}
 
 		else if (t_type == PRINT) {
@@ -655,13 +681,16 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
 			check_current_token();
 
+      if (t_type == RBRACE && braceCount == 1) {
+
+        ungetToken();
+      }
+
 		}
 
 		else if (t_type == IF){
 
-      if_queue_list.push_back("IF");
-      // printf("ADDDDDDED\n\n\n\n\n");
-      currently_adding = "IF";
+      if_statement_type_tracker_list.push_back("IF");
 
 			current_type = "IF";
 
@@ -673,6 +702,7 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
 		else if (t_type == WHILE) {
 
+      if_statement_type_tracker_list.push_back("IF");
 
 			current_type = "WHILE";
 
@@ -682,36 +712,20 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
 		}
 
-    else if (t_type == SWITCH) {
+    else if (t_type == SWITCH || t_type == CASE) {
 
-      if_queue_list.push_back("SWITCH");
-      // printf("ADDDDDDED\n\n\n\n\n");
-
-      braceCount += 1;
+      if_statement_type_tracker_list.push_back("SWITCH");
 
       currently_adding = "SWITCH";
+
+      if (VERBOSE)
+        cout << "************************************************************\nSWITCH STATEMENT ENTERED SUCCESSFULLY\n************************************************************" << endl;
 
       current_type = "SWITCH";
 
-      cout << "\n\nCURRENTLY ENTERING SWITCH STATEMENT\n\n" << endl;
-
-      parse_switch_statement();
-
-
-    }
-
-    else if (t_type == CASE) {
-
-      currently_adding = "SWITCH";
-
-      if_queue_list.push_back("SWITCH");
-      // printf("ADDDDDDED\n\n\n\n\n");
-
       braceCount += 1;
 
-      current_type = "CASE";
-
-      cout << "\n\nCURRENTLY ENTERING CASE STATEMENT\n\n" << endl;
+      // printf("BRACE COUNT INSIDE OF THE SWITCH STATEMENT INCREMENT - %d\n\n", braceCount);
 
       parse_switch_statement();
 
@@ -719,7 +733,10 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
 		else if (t_type == RBRACE) {
 
+
 			braceCount -= 1;
+
+      // printf("BRACE COUNT DECREMENT- %d\n\n", braceCount);
 
 			if (braceCount > 0 && current_type == "IF") {
 
@@ -750,17 +767,20 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
 			}
 
-      else if (braceCount > 0 && (current_type == "CASE" || current_type == "SWITCH")) {
+      else if (braceCount > 0 && current_type == "SWITCH") {
 
-          currently_adding = "SWITCH";
+        //Create a new statement node for the no-op
+        StatementNode * newNoOPNode = new StatementNode();
+        newNoOPNode->type = NOOP_STMT;
+				add_node_to_statement_list(newNoOPNode);
 
-          StatementNode * newNoOPNode = new StatementNode();
+        if (VERBOSE)
+          printf("\n\nThe no-op has been added at the end of the switch statement\n\n");
 
-  				newNoOPNode->type = NOOP_STMT;
-
-  				add_node_to_statement_list(newNoOPNode);
       }
+
 		}
+
 	}
 
 	return statementList;
@@ -811,182 +831,199 @@ struct StatementNode * parse_generate_intermediate_representation() {
 	//Get a vector of value node pointers
 	vector<ValueNode*> variables_used = parse_variable_names();
 
+  //Run through and begin parsing the program code
 	program = gather_statement_data(braceCount);
 
+  //Create a traversal node to sift through all the stored memory nodes
 	StatementNode * traversal = statementList;
 
-	//Search through vector and update the value pointer val
+	//Search through vector and update the value pointer val (making sure all values are zeroed for execution to do the math properly)
 	for (int x = 0; x < value_node_vector_list.size(); x++)
-	{
 		value_node_vector_list[x]->value = 0;
-	}
-
-  /******************
-      DEBUGGING
-  ******************/
-
-  printf("\n\n\n\n\n----%d\n", if_queue_list.size());
-
-  for (int i = 0; i < if_queue_list.size(); i++)
-  {
-    printf("%s ", if_queue_list[i]);
-  }
-
-
-  /******************
-     END  DEBUGGING
-  ******************/
-
-  // vector<char *>clone_if_queue_list = if_queue_list;
-
-  int queue_counter = 0;
 
 	vector<StatementNode*> if_queue;
 
-  printf("\n\n\n\n\n\n");
+  vector<char*> statement_tracker_copy = if_statement_type_tracker_list;
 
-	while (traversal!=NULL)
-	{
+  // cout << "TEST\n--------" << endl;
+  // for (int x = 0; x < if_statement_type_tracker_list.size(); x++)
+  // {
+  //   // cout << if_queue[x]->if_stmt->condition_operand2->name << endl;
+  //   cout << if_statement_type_tracker_list[x] << endl;
+  // }
+  //
+  // cout << "\n\n--------" << endl;
 
-		if (traversal->type == IF_STMT) {
+  int position_tracker = 0;
+  int global_tracker = 0;
 
+    traversal = statementList;
+
+  while (traversal != NULL) {
+
+    if (traversal->type == IF_STMT) {
+
+      //Add if statement to queue to fix no-ops
 			if_queue.push_back(traversal);
-      queue_counter+=1;
+      global_tracker+=1;
 		}
 
-    //Handle setting the false branch for an if statement
-		else if (traversal->type == NOOP_STMT && if_queue.size() > 0 && traversal->next && if_queue_list[queue_counter-1] == "IF") {
+		if (traversal->type == NOOP_STMT && if_queue.size() > 0 && traversal->next && statement_tracker_copy[global_tracker-1] == "IF") {
+      //Assign relevant no-op statement
 
-      cout << "IF setting false branch" << endl;
+      global_tracker-=1;
 
-      queue_counter--;
-			if_queue_node_list[queue_counter]->if_stmt->false_branch = traversal->next;
-      if_queue_list.erase(if_queue_list.begin() + queue_counter);
-      if_queue_node_list.erase(if_queue_node_list.begin() + queue_counter);
+      if_queue.back()->if_stmt->false_branch = traversal->next;
+
+      if_queue.pop_back();
+
+      statement_tracker_copy.erase(statement_tracker_copy.begin() + global_tracker);
+
+      position_tracker+=1;
 
 		}
 
-    //Handle setting the false branch for an if statement if next is null
-		else if (traversal->type == NOOP_STMT && traversal->next == NULL && if_queue_list[queue_counter-1] == "IF") {
+		else if (traversal->type == NOOP_STMT && traversal->next == NULL && statement_tracker_copy[global_tracker-1] == "IF") {
+      //If the no-op exists at the end of the list
 
-      cout << "IF" << endl;
+      global_tracker-=1;
 
-      queue_counter--;
+      // printf("assigned IF\n");
 			StatementNode * sNode = new StatementNode();
 			sNode->type = NOOP_STMT;
-			if_queue_node_list[queue_counter]->if_stmt->false_branch = sNode;
-      if_queue_list.erase(if_queue_list.begin() + queue_counter);
-      if_queue_node_list.erase(if_queue_node_list.begin() + queue_counter);
+      // if_queue[0]->if_stmt->false_branch = sNode;
+      // if_queue.erase(if_queue.begin());
+      // if_statement_type_tracker_list.erase(if_statement_type_tracker_list.begin());
+      position_tracker+=1;
+
+			if_queue.back()->if_stmt->false_branch = sNode;
+      if_queue.pop_back();
+      statement_tracker_copy.erase(statement_tracker_copy.begin() + global_tracker);
+      // if_statement_type_tracker_list.erase(if_statement_type_tracker_list.begin());
+		}
+
+    else if (traversal->type == NOOP_STMT && if_queue.size() > 0 && traversal->next && statement_tracker_copy[global_tracker-1] == "SWITCH") {
+      //Assign relevant no-op statement
+
+      global_tracker-=1;
+
+      // printf("assigned switch %d\n", position_tracker);
+			if_queue.back()->if_stmt->true_branch = traversal->next;
+      if_queue.pop_back();
+      statement_tracker_copy.erase(statement_tracker_copy.begin() + global_tracker);
+      // if_statement_type_tracker_list.erase(if_statement_type_tracker_list.begin());
+      position_tracker+=1;
 
 		}
 
-    //Handle setting the false branch for a switch statement
-		else if (traversal->type == NOOP_STMT && if_queue.size() > 0 && traversal->next && if_queue_list[queue_counter-1] == "SWITCH") {
+    else if (traversal->type == NOOP_STMT && traversal->next == NULL && traversal->next && statement_tracker_copy[global_tracker-1] == "SWITCH") {
+      //If the no-op exists at the end of the list
 
-      cout << "SWITCH true branch set" << endl;
+      global_tracker-=1;
 
-      queue_counter--;
-      if_queue_node_list[queue_counter]->if_stmt->true_branch = traversal->next;
-
-      if (!if_queue_node_list[queue_counter]->if_stmt->false_branch)
-      {
-        cout << "TRUE THE FALSE BRANCH FOR SWITCH IS NULL " << endl;
-      }
-
-      if_queue_list.erase(if_queue_list.begin() + queue_counter);
-      if_queue_node_list.erase(if_queue_node_list.begin() + queue_counter);
-
-		}
-
-    //Handle setting the false branch for a switch statement if next is null
-		else if (traversal->type == NOOP_STMT && traversal->next == NULL && if_queue_list[queue_counter-1] == "SWITCH") {
-
-      cout << "SWITCH true branch set" << endl;
-
-      queue_counter--;
+      // printf("assigned switch\n");
 			StatementNode * sNode = new StatementNode();
 			sNode->type = NOOP_STMT;
-			if_queue_node_list[queue_counter]->if_stmt->true_branch = sNode;
-
-      if (!if_queue_node_list[queue_counter]->if_stmt->false_branch)
-      {
-        cout << "TRUE THE FALSE BRANCH FOR SWITCH IS NULL " << endl;
-      }
-
-      if_queue_list.erase(if_queue_list.begin() + queue_counter);
-      if_queue_node_list.erase(if_queue_node_list.begin() + queue_counter);
-
+			if_queue.back()->if_stmt->true_branch = sNode;
+      if_queue.pop_back();
+      statement_tracker_copy.erase(statement_tracker_copy.begin() + global_tracker);
+      // if_statement_type_tracker_list.erase(if_statement_type_tracker_list.begin());
+      position_tracker+=1;
 		}
 
+    //Increment traversal pointer through the node graph
 		if (traversal->next)
 			traversal = traversal->next;
 		else
 			break;
 	}
 
-  printf("\n\n\n\n\n\n");
+    traversal = statementList;
 
-	// traversal = statementList;
-  //
-  //
-	// vector<StatementNode*> while_queue;
-  //
-	// while (traversal!=NULL)
-	// {
-  //
-	// 	if (traversal->type == IF_STMT) {
-  //
-	// 		// cout << "THIS IS THE WHILE , queieing" << endl;
-  //
-	// 		while_queue.push_back(traversal);
-	// 	}
-  //
-	// 	else if (traversal->type == GOTO_STMT && while_queue.size() > 0) {
-  //
-	// 		traversal->goto_stmt->target = while_queue.back();
-	// 		while_queue.pop_back();
-  //
-	// 		// cout << "LINKING GO TO TO WHILE STATEMENT" << endl;
-	// 	}
-  //
-	// 	if (traversal->next)
-	// 		traversal = traversal->next;
-	// 	else
-	// 		break;
-	// }
+    int counter_track = 0;
+  	while (traversal!=NULL)
+  	{
 
-  // printf("\n\n\n\n\n\n");
-  //
-  // 	traversal = statementList;
-  //
-  //   int temp_count = 0;
-  //
-  //   while (traversal!=NULL)
-  // 	{
-  //
-  //     if (traversal->type == NOOP_STMT) {
-  //       temp_count+=1;
-  //
-  //       if (traversal->if_stmt->false_branch == NULL)
-  //       {
-  //         printf("%s\n", clone_if_queue_list[temp_count]);
-  //         break;
-  //       }
-  //     }
-  //
-  //     if (traversal->next!=NULL)
-  //     {
-  //       traversal=traversal->next;
-  //     }
-  //     else {
-  //
-  //       break;
-  //     }
-    // }
+  		if (traversal->type == IF_STMT) {
+        //Add if statement to queue to fix no-ops
+  			if (traversal->if_stmt->false_branch == NULL) {
+
+          // cout << counter_track << endl;
+          break;
+
+        }
+        counter_track+=1;
+
+  		}
+
+      //Increment traversal pointer through the node graph
+      if (traversal->next)
+        traversal = traversal->next;
+      else
+        break;
+
+    }
 
 
+  // Reset the traversal pointer
+	traversal = statementList;
+
+  //Dynamic vector to store while no-op queues
+	vector<StatementNode*> while_queue;
+
+	while (traversal!=NULL)
+	{
+		if (traversal->type == IF_STMT) {
+      //Queue up current while node
+			while_queue.push_back(traversal);
+      // printf("added\n");
+		}
+
+		else if (traversal->type == GOTO_STMT && while_queue.size() > 0) {
+      //Assign no-op and pop the queue
+			traversal->goto_stmt->target = while_queue.back();
+			while_queue.pop_back();
+		}
+
+    //Increment pointer location for traversing through the graph of nodes
+		if (traversal->next)
+			traversal = traversal->next;
+		else
+			break;
+	}
+
+  //Test view outut of the current assignments
 	test_statement_assigns();
 
+
+  printf("\n\n\n\n\n\n");
+
+  	traversal = statementList;
+
+    int temp_count = 0;
+
+    while (traversal!=NULL)
+  	{
+      temp_count+=1;
+      if (traversal->type == IF_STMT) {
+
+        if (traversal->if_stmt->false_branch == NULL)
+        {
+          printf("%d\n", temp_count);
+
+          break;
+        }
+      }
+
+      if (traversal->next!=NULL)
+      {
+        traversal=traversal->next;
+      }
+      else {
+
+        break;
+      }
+    }
 
 
 	return program;
