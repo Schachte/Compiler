@@ -1,4 +1,4 @@
-a;
+a, x;
 {
     a = 10 ;
     SWITCH a
@@ -30,6 +30,16 @@ a;
             WHILE a < 6 {
 
               a = a + 1;
+
+              IF a < 5 {
+
+                IF a < 5 {
+
+                  print x;
+
+                }
+
+              }
 
             }
         }
