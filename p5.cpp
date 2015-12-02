@@ -79,7 +79,7 @@ struct StatementNode * statementList = NULL;
 //Takes care of very first LBRACE when parsing code body
 int beginParsingCode = 0;
 
-//Updates based on most recently visited node type
+//Updates based on most recently visited node typ
 char * current_type;
 
 ValueNode * currentSwitchOperand1;
@@ -97,7 +97,7 @@ void test_statement_assigns();
 ValueNode * second_operand_for_if_condition();
 struct ValueNode * create_numerical_value_node(char * integer_input_value);
 /************************************************************/
-test
+
 //Function to add value nodes to the statement list
 void add_node_to_statement_list(StatementNode * sNode) {
 
