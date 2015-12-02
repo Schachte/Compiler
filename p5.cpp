@@ -565,7 +565,7 @@ AssignmentStatement * parse_assign_statement() {
 
 		assignStmt->op = OP_NOOP;
 
-		//Search through vector and update the value pointer val
+		//Search through vector and update the value pointer value
 		for (int x = 0; x < value_node_vector_list.size(); x++)
 		{
 			if (strcmp(value_node_vector_list[x]->name, assignStmt->left_hand_side->name) == 0) {
