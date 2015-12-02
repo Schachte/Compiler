@@ -125,7 +125,7 @@ void add_node_to_statement_list(StatementNode * sNode) {
 		while (temp->next != NULL) {
 
       // printf("TEST\n");
-      // printf("%s\n", currently_adding);
+      // printf("%s\n", currently_adding)
 
 			if (temp->type == IF_STMT)
 			{
