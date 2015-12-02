@@ -101,7 +101,7 @@ struct ValueNode * create_numerical_value_node(char * integer_input_value);
 //Function to add value nodes to the statement list
 void add_node_to_statement_list(StatementNode * sNode) {
 
-	//Take in the actual pointer to the struct and the enum statement type to insert into the linkedList
+	//Take in the actual pointer to the struct and the enum statement type to insert into the linkedLis
 
 	StatementNode * tempIfNode = new StatementNode();
 
