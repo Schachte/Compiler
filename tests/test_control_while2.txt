@@ -1,7 +1,7 @@
 
 a ;
 {
-a = 10  ;
+a = 0-10  ;
 WHILE a > 0 {
 	print a;
 	a = a-1;

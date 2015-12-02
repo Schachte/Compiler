@@ -7,7 +7,7 @@ j = 3;
 minusfour = 0-4;
 
 WHILE i > 0 {
-	j = 3;
+	j = 3;	
 	IF j > 1 {	
 		WHILE j > 0 {
 			k = i*j;

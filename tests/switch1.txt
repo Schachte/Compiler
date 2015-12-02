@@ -1,9 +1,10 @@
 a, x;
 {
-    a = 10 ;
+    a = 15 ;
+    x = 0;
     SWITCH a
     {
-        CASE 0 :
+        CASE 1 :
         {
             a = 20 ;
 
@@ -50,5 +51,18 @@ a, x;
         }
     }
 
-    print a;
+    SWITCH x
+    {
+      CASE 0:
+      {
+        print x;
+      }
+
+      DEFAULT:
+      {
+        print x;
+      }
+    }
+
+    print x;
   }
