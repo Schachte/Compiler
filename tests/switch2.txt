@@ -1,6 +1,6 @@
 a;
 {
-    a = 10 ;
+    a = 12 ;
     SWITCH a
     {
         CASE 0 :
@@ -10,6 +10,11 @@ a;
         CASE 10 :
         {
             a = a + 40;
+        }
+
+        DEFAULT :
+        {
+          print a;
         }
     }
     print a ;

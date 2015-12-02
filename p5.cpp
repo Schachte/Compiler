@@ -5,8 +5,7 @@ extern "C" {
 
 // Gcc -c compiler.c; g++ p5.cpp compiler.o; ./a.out < tests/test_control_whilewhile_if1.txt
 
-
-#define VERBOSE 1
+#define VERBOSE 0
 
 #include <string>
 #include <vector>
@@ -20,7 +19,6 @@ extern "C" {
 
 using namespace std;
 
-
 union statement_types
 {
     struct AssignmentStatement* assign_stmt;
@@ -28,7 +26,6 @@ union statement_types
     struct IfStatement* if_stmt;
     struct GotoStatement* goto_stmt;
 };
-
 
 std::string reserveds[] =
 {
@@ -88,6 +85,14 @@ vector<char *> if_statement_type_tracker_list;
 
 char * currently_adding = "";
 
+vector<char *> parent_rbrace_type;
+
+//Vector to track where go-to exists
+vector<char *> go_to_string;
+
+//Vector to track go-to pointers to point to end of switch
+vector<StatementNode*> go_to_queue;
+
 //TESTING FUNCTIONS TO ENSURE VALIDITY INSIDE OF THE PROGRAM
 /************************************************************/
 StatementNode * gather_statement_data(int counter);
@@ -102,7 +107,6 @@ struct ValueNode * create_numerical_value_node(char * integer_input_value);
 void add_node_to_statement_list(StatementNode * sNode) {
 
 	//Take in the actual pointer to the struct and the enum statement type to insert into the linkedLis
-
 	StatementNode * tempIfNode = new StatementNode();
 
 	int found = 0;
@@ -129,13 +133,18 @@ void add_node_to_statement_list(StatementNode * sNode) {
 
 				if (temp->if_stmt->true_branch == NULL && strcmp(currently_adding, "SWITCH") != 0) {
 
-          // printf("added\n");
+          // printf("added!!\n\n\n\n\n");
 					temp->if_stmt->true_branch = temp->next;
+
+          // printf("added!!\n\n\n\n\n");
+          // cout << temp << endl;
 
 				}
 
         if (temp->if_stmt->false_branch == NULL && strcmp(currently_adding, "SWITCH") == 0) {
           // printf("added\n");
+          // printf("added!!\n\n\n\n\n");
+          // cout << temp << endl;
 
           temp->if_stmt->false_branch = temp->next;
         }
@@ -151,7 +160,6 @@ void add_node_to_statement_list(StatementNode * sNode) {
 			temp->next = sNode;
 			temp = temp->next;
 		}
-
 	}
 }
 
@@ -173,6 +181,38 @@ ValueNode * search_for_value(char * findMe) {
 
 	return NULL;
 }
+
+
+
+//Parse out the body of the default statement and build the node
+void parse_default_statement() {
+
+
+  getToken();
+  getToken();
+
+  IfStatement * default_if_node = new IfStatement();
+
+  default_if_node->condition_operand1 = currentSwitchOperand1;
+  default_if_node->condition_operand2 = currentSwitchOperand1;
+  default_if_node->condition_op = CONDITION_NOTEQUAL;
+
+
+  StatementNode * newSwitchNode = new StatementNode();
+
+  newSwitchNode->type = IF_STMT;
+
+  newSwitchNode->if_stmt = default_if_node;
+
+  currently_adding = "SWITCH";
+
+  add_node_to_statement_list(newSwitchNode);
+
+  StatementNode * buildNestedBody = gather_statement_data(braceCountNested);
+
+}
+
+
 
 //Function designed to understand the structure of a switch statement and parse the nodes accordingly
 void parse_switch_statement() {
@@ -218,12 +258,6 @@ void parse_switch_statement() {
         }
       }
     }
-
-      // if (VERBOSE)
-        // printf("Case number achieved for operand2 %s\n\n", token);
-
-        //If the global_op_1 is not null, then we can assign the statement node op1
-          // printf("Brace count increase %d\n\n", braceCount);
 
 
         if (currentSwitchOperand1) {
@@ -691,6 +725,8 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
 			current_type = "IF";
 
+      parent_rbrace_type.push_back("IF");
+
 			braceCount += 1;
 
 			parse_if_statement();
@@ -700,6 +736,8 @@ StatementNode * gather_statement_data(int braceCountNum) {
 		else if (t_type == WHILE) {
 
       if_statement_type_tracker_list.push_back("IF");
+
+      parent_rbrace_type.push_back("WHILE");
 
 			current_type = "WHILE";
 
@@ -713,6 +751,14 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
       if_statement_type_tracker_list.push_back("SWITCH");
 
+
+      if (t_type == SWITCH){
+        parent_rbrace_type.push_back("SWITCH");
+        parent_rbrace_type.push_back("CASE");
+      }
+      else if (t_type == CASE)
+        parent_rbrace_type.push_back("CASE");
+
       currently_adding = "SWITCH";
 
       if (VERBOSE)
@@ -722,16 +768,36 @@ StatementNode * gather_statement_data(int braceCountNum) {
 
       braceCount += 1;
 
-      // printf("BRACE COUNT INSIDE OF THE SWITCH STATEMENT INCREMENT - %d\n\n", braceCount);
 
       parse_switch_statement();
 
+    }
+
+    else if (t_type == DEFAULT) {
+
+      if_statement_type_tracker_list.push_back("SWITCH");
+      parent_rbrace_type.push_back("CASE");
+
+      currently_adding = "SWITCH";
+
+      // cout << "DEFAULT EXISTS" << endl;
+      braceCount+=1;
+
+      parse_default_statement();
     }
 
 		else if (t_type == RBRACE) {
 
 
 			braceCount -= 1;
+
+      // current_type = parent_rbrace_type.back();
+
+      if (parent_rbrace_type.size() > 0) {
+        current_type = parent_rbrace_type.back();
+        parent_rbrace_type.pop_back();
+      }
+
 
       // printf("BRACE COUNT DECREMENT- %d\n\n", braceCount);
 
@@ -742,9 +808,12 @@ StatementNode * gather_statement_data(int braceCountNum) {
 				newNoOPNode->type = NOOP_STMT;
 
 				add_node_to_statement_list(newNoOPNode);
+        current_type = parent_rbrace_type.back();
 			}
 
 			else if (braceCount > 0 && current_type == "WHILE") {
+
+        // cout << "\n\n\n\n\n\n\n\n\n\nHERE SIR\n\n\n\n\n\n\n\n\n" << endl;
 
 				StatementNode * newGoToNode = new StatementNode();
 
@@ -761,15 +830,43 @@ StatementNode * gather_statement_data(int braceCountNum) {
 				newNoOPNode->type = NOOP_STMT;
 
 				add_node_to_statement_list(newNoOPNode);
+        current_type = parent_rbrace_type.back();
 
 			}
 
-      else if (braceCount > 0 && current_type == "SWITCH") {
+      else if (braceCount > 0 && (current_type == "SWITCH" || current_type == "CASE")) {
+
+
+        StatementNode * newGoToNode = new StatementNode();
+
+        newGoToNode->type = GOTO_STMT;
+
+        struct GotoStatement * GTN = new GotoStatement();
+
+        newGoToNode->goto_stmt = GTN;
+
+        add_node_to_statement_list(newGoToNode);
 
         //Create a new statement node for the no-op
         StatementNode * newNoOPNode = new StatementNode();
         newNoOPNode->type = NOOP_STMT;
+
+        if (current_type == "SWITCH") {
+          go_to_string.push_back("E");
+          go_to_queue.push_back(newGoToNode);
+          // printf("NOOP_ADDRESS IS\n\n\n\n\n\n");
+          // cout << newGoToNode << endl;
+        }
+        else {
+          go_to_string.push_back("G");
+          go_to_queue.push_back(newGoToNode);
+        }
+
+
 				add_node_to_statement_list(newNoOPNode);
+        // current_type = parent_rbrace_type.back();
+
+        current_type = parent_rbrace_type.back();
 
         if (VERBOSE)
           printf("\n\nThe no-op has been added at the end of the switch statement\n\n");
@@ -866,8 +963,8 @@ struct StatementNode * parse_generate_intermediate_representation() {
 		}
 
 		if (traversal->type == NOOP_STMT && if_queue.size() > 0 && traversal->next && statement_tracker_copy[global_tracker-1] == "IF") {
-      //Assign relevant no-op statement
 
+      //Assign relevant no-op statement
       global_tracker-=1;
 
       if_queue.back()->if_stmt->false_branch = traversal->next;
@@ -935,65 +1032,67 @@ struct StatementNode * parse_generate_intermediate_representation() {
 			break;
 	}
 
-    traversal = statementList;
 
-    int counter_track = 0;
-  	while (traversal!=NULL)
-  	{
-
-  		if (traversal->type == IF_STMT) {
-        //Add if statement to queue to fix no-ops
-  			if (traversal->if_stmt->false_branch == NULL) {
-
-          // cout << counter_track << endl;
-          break;
-
-        }
-        counter_track+=1;
-
-  		}
-
-      //Increment traversal pointer through the node graph
-      if (traversal->next)
-        traversal = traversal->next;
-      else
-        break;
-
-    }
+  /******************
+  GO TO DESIGN go-to
+  *******************/
 
 
-  // Reset the traversal pointer
-	traversal = statementList;
-
-  //Dynamic vector to store while no-op queues
-	vector<StatementNode*> while_queue;
-
-	while (traversal!=NULL)
-	{
-		if (traversal->type == IF_STMT) {
-      //Queue up current while node
-			while_queue.push_back(traversal);
-      // printf("added\n");
-		}
-
-		else if (traversal->type == GOTO_STMT && while_queue.size() > 0) {
-      //Assign no-op and pop the queue
-			traversal->goto_stmt->target = while_queue.back();
-			while_queue.pop_back();
-		}
-
-    //Increment pointer location for traversing through the graph of nodes
-		if (traversal->next)
-			traversal = traversal->next;
-		else
-			break;
-	}
-
-  //Test view outut of the current assignments
-	test_statement_assigns();
 
 
-  printf("\n\n\n\n\n\n");
+    // traversal = statementList;
+    //
+    // int counter_track = 0;
+  	// while (traversal!=NULL)
+  	// {
+    //
+  	// 	if (traversal->type == IF_STMT) {
+    //     //Add if statement to queue to fix no-ops
+  	// 		if (traversal->if_stmt->false_branch == NULL) {
+    //
+    //       // cout << counter_track << endl;
+    //       break;
+    //
+    //     }
+    //     counter_track+=1;
+    //
+  	// 	}
+    //
+    //   //Increment traversal pointer through the node graph
+    //   if (traversal->next)
+    //     traversal = traversal->next;
+    //   else
+    //     break;
+    //
+    // }
+
+
+  // // Reset the traversal pointer
+	// traversal = statementList;
+  //
+  // //Dynamic vector to store while no-op queues
+	// vector<StatementNode*> while_queue;
+  //
+	// while (traversal!=NULL)
+	// {
+	// 	if (traversal->type == IF_STMT) {
+  //     //Queue up current while node
+	// 		while_queue.push_back(traversal);
+  //     // printf("added\n");
+	// 	}
+  //
+	// 	else if (traversal->type == GOTO_STMT && while_queue.size() > 0) {
+  //     //Assign no-op and pop the queue
+	// 		traversal->goto_stmt->target = while_queue.back();
+	// 		while_queue.pop_back();
+	// 	}
+  //
+  //   //Increment pointer location for traversing through the graph of nodes
+	// 	if (traversal->next)
+	// 		traversal = traversal->next;
+	// 	else
+	// 		break;
+	// }
 
   	traversal = statementList;
 
@@ -1006,7 +1105,8 @@ struct StatementNode * parse_generate_intermediate_representation() {
 
         if (traversal->if_stmt->false_branch == NULL)
         {
-          printf("%d\n", temp_count);
+
+          traversal->if_stmt->false_branch = traversal->next;
 
           break;
         }
@@ -1022,11 +1122,93 @@ struct StatementNode * parse_generate_intermediate_representation() {
       }
     }
 
+    traversal = statementList;
+
+    int go_to_tracker = 0;
+
+    vector<StatementNode*> go_to_queue_list;
+
+    while (traversal && go_to_tracker < go_to_string.size()) {
+
+      //If it's just a go-to statement, then queue the pointer
+      if (strcmp("G", go_to_string[go_to_tracker]) == 0) {
+
+        // cout << "Added a go_to" << endl;
+        go_to_queue_list.push_back(go_to_queue[go_to_tracker]);
+
+      }
+
+      else if (strcmp("E", go_to_string[go_to_tracker]) == 0) {
+
+        for (int i = 0; i < go_to_queue_list.size(); i++) {
+
+          // cout << "Assigned go_to to the end of the switch" << endl;
+
+          go_to_queue_list[i]->goto_stmt->target = go_to_queue[go_to_tracker];
+        }
+
+        if (traversal->next) {
+          go_to_queue[go_to_tracker]->goto_stmt->target = go_to_queue[go_to_tracker]->next;
+
+        }
+        else {
+          StatementNode * newSNode = new StatementNode();
+          newSNode->type = NOOP_STMT;
+          go_to_queue[go_to_tracker]->goto_stmt->target = NULL;
+
+
+        }
+        go_to_queue_list.clear();
+      }
+
+      go_to_tracker++;
+
+      if (traversal->next!=NULL)
+      {
+        traversal = traversal->next;
+
+      }
+      else{
+        break;
+      }
+
+    }
+
+
+    traversal = statementList;
+
+    //Dynamic vector to store while no-op queues
+  	vector<StatementNode*> while_queue;
+
+  	while (traversal!=NULL)
+  	{
+  		if (traversal->type == IF_STMT) {
+        //Queue up current while node
+  			while_queue.push_back(traversal);
+        // printf("added\n");
+  		}
+
+  		else if (traversal->type == GOTO_STMT && while_queue.size() > 0 && traversal->goto_stmt->target == NULL) {
+        //Assign no-op and pop the queue
+  			traversal->goto_stmt->target = while_queue.back();
+  			while_queue.pop_back();
+  		}
+
+      //Increment pointer location for traversing through the graph of nodes
+  		if (traversal->next)
+  			traversal = traversal->next;
+  		else
+  			break;
+  	}
+
+    //Test view outut of the current assignments
+  	test_statement_assigns();
+
 
 	return program;
 }
 
-
+//
 /****************
 TESTING FUNCTIONS
 *****************/
@@ -1056,7 +1238,6 @@ void check_current_token() {
 
 void test_statement_assigns() {
 
-
 	StatementNode * traversal = statementList;
 
 	if (VERBOSE) {
@@ -1071,7 +1252,15 @@ void test_statement_assigns() {
 
 		while (traversal!=NULL)
 		{
-			cout << type_array[traversal->type] << endl;
+			cout << type_array[traversal->type] << " - " << traversal  <<  endl;
+
+      if (traversal->type == GOTO_STMT) {
+
+        if (traversal->goto_stmt->target != NULL) {
+
+          cout << "TARGET IS " << traversal->goto_stmt->target << endl;
+        }
+      }
 
 			if (traversal->next)
 				traversal = traversal->next;

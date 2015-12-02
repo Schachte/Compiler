@@ -18,12 +18,19 @@ a;
 
             IF a > 5 {
 
-              print a;
+              a = 7;
             }
 
             IF a > 6 {
 
               print a;
+              a = 1;
+            }
+
+            WHILE a < 6 {
+
+              a = a + 1;
+
             }
         }
 
@@ -32,5 +39,6 @@ a;
           print a;
         }
     }
-    print a ;
-    }
+
+    print a;
+  }
