@@ -98,7 +98,6 @@ ValueNode * second_operand_for_if_condition();
 struct ValueNode * create_numerical_value_node(char * integer_input_value);
 /************************************************************/
 
-
 //Function to add value nodes to the statement list
 void add_node_to_statement_list(StatementNode * sNode) {
 
@@ -124,8 +123,6 @@ void add_node_to_statement_list(StatementNode * sNode) {
 
 		while (temp->next != NULL) {
 
-      // printf("TEST\n");
-      // printf("%s\n", currently_adding)
 
 			if (temp->type == IF_STMT)
 			{
